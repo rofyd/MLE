@@ -1,0 +1,23 @@
+# Compiled source
+*.o
+
+# Executable
+latticeeasy
+
+# Log data
+log/
+log/*
+*.log
+
+# build data
+obj/
+
+# work in progess data
+wip/
+
+# Output data
+data/
+data/*
+*.dat
+output.txt
+ 
