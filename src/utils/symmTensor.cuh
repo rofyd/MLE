@@ -279,8 +279,8 @@ private:
         pos = i + latticeSize * j + latticeSize * latticeSize * k;
         //pos = k + latticeSize * j + latticeSize * latticeSize * i;
 
-        if(pos >= numEntries)
-            printf("HOHTODOOOH NOOOO WTF %ld\t%ld\n", pos, numEntries); //TODO: delete this line for release
+        //if(pos >= numEntries)
+        //    printf("out of bounds %ld\t%ld\n", pos, numEntries); //TODO: delete this line for release
         return entries[pos % numEntries];
     }
 

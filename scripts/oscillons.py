@@ -3,6 +3,8 @@ import numpy as np
 import h5py as h5
 from scipy.interpolate import interpn
 from pathlib import Path
+import sys
+import getopt
 
 def generate_specific_rows(filePath, row_indices = []):
 	with open(filePath) as f:
@@ -11,13 +13,12 @@ def generate_specific_rows(filePath, row_indices = []):
 		for i, line in enumerate(f):
 			#if line no. is in the row index list, then return that line
 			if i in row_indices:
-				print("found it")
 				yield line
 
 # function to load data from path
-def loadData(path):
+def loadData(path, index):
 	print("loading data ...")
-	gen = generate_specific_rows(path, [1])
+	gen = generate_specific_rows(path, [int(index)])
 	data = np.genfromtxt(gen, skip_header = 0, dtype = str, comments = 'comment')
 	print("finished loading data")
 	#print(data)
@@ -167,15 +168,15 @@ def plotODhist(values, binSize):
 def transferFunction(x):
 
 	# values per peak. They are the same for all colors at that peak
-	means = [5.0, 7.0, 30.0]
-	sigmas = [3.0, 3.0, 20.0]
+	means = [7.0, 15.0, 80.0]
+	sigmas = [1.0, 4.0, 20.0]
 
 	# amplitudes for each peak and color (rgba)
 	amplitudes = [[0.1, 0.1, 1.0, 0.05], [0.1, 1.0, 0.1, 0.1], [1.0, 0.1, 0.1, 0.6]]
 	numPeaks = len(means)
 	r, g, b, a = 0, 0, 0, 0
 	for i in range(numPeaks):
-		scale = np.exp( -(x - means[i])**2 / sigmas[i])
+		scale = np.exp( -(x - means[i])**2 / (2 * sigmas[i]**2))
 		r += amplitudes[i][0] * scale
 		g += amplitudes[i][1] * scale
 		b += amplitudes[i][2] * scale
@@ -219,12 +220,16 @@ def volumeRenderer(datacube):
 		qi = np.array([qxR.ravel(), qyR.ravel(), qzR.ravel()]).T
 		
 		# Interpolate onto Camera Grid
-		camera_grid = interpn(points, datacube, qi, method='linear').reshape((N,N,N))
-		
+		#camera_grid = interpn(points, datacube, qi, method='linear').reshape((N,N,N))
+		camera_grid = datacube
+
 		# Do Volume Rendering
 		image = np.zeros((camera_grid.shape[1],camera_grid.shape[2],3))
 	
+		count = 0
 		for dataslice in camera_grid:
+			count += 1
+			print("Status: ", count, "/", Nx)
 			r,g,b,a = transferFunction(dataslice)#np.log(dataslice))
 			image[:,:,0] = a*r + (1-a)*image[:,:,0]
 			image[:,:,1] = a*g + (1-a)*image[:,:,1]
@@ -233,6 +238,7 @@ def volumeRenderer(datacube):
 		image = np.clip(image, 0.0, 1.0)
 		
 		# Plot Volume Rendering
+		print("Plotting volume render ...")
 		plt.figure(figsize=(4,4), dpi=80)
 		
 		plt.imshow(image)
@@ -242,35 +248,41 @@ def volumeRenderer(datacube):
 		plt.savefig('volumerender' + str(i) + '.png',dpi=240,  bbox_inches='tight', pad_inches = 0)
 		plt.close()
 
-def main():
-	# inputfile = ''
+def main(argv):
+	num = 0
+	index = 0
 
-	# try:
-	# 	opts, args = getopt.getopt(argv,"hi:o:",["ifile="])
-	# except getopt.GetoptError:
-	# 	print('test.py -i <inputfile>')
-	# 	sys.exit(2)
-	# for opt, arg in opts:
-	# 	if opt == '-h':
-	# 		print('test.py -i <inputfile> -o <outputfile>')
-	# 		sys.exit()
-	# 	elif opt in ("-i", "--ifile"):
-	# 		inputfile = arg
-	# print('Input file is ', inputfile)
-	
+	try:
+		opts, args = getopt.getopt(argv, "hn:i:", ["ifile="])
+	except getopt.GetoptError:
+		print('test.py -i <index> -n <N>')
+		sys.exit(2)
+	for opt, arg in opts:
+		if opt == '-h':
+			print('test.py -i <index> -n <N>')
+			sys.exit()
+		elif opt == "-i":
+			index = int(arg)
+		elif opt == "-n":
+			num = int(arg)
 
-	num = 512 # amount of points per side
+	print("Index: ", index, " num: ", num)
+	if(num == 0):
+		print("Please insert valid num <N>")
+		exit(1)
+
+
+	#num = 512 # amount of points per side
 	div = 3 # amount of divisions per side for spatial sort
 	odlimit = 1.0 # all overdensities below this value are cut
 
 	# load data
-
 	base_path = Path(__file__).parent
 	file_path = (base_path / "../overdensities_0.dat").resolve()
 	
-	df = loadData(file_path)
+	df = loadData(file_path, index)
 	#df = np.array([['3330.350000', '2.000006', '0.000259', '0-5-37_5.073954--0.202656-2.765944#0-5-38_5.134136--0.064139-2.782694#0-5-39_9.0-0.054905-2.787238#2-5-39_2.0-0.054905-2.787238#2-5-40_5.149941-0.054905-2.787238#']])
-	
+
 	# put data into usable format
 	values = adjustData(df, odlimit)
 
@@ -298,45 +310,45 @@ def main():
 
 if __name__ == '__main__':
 
-	main()
+	main(sys.argv[1:])
 	exit(1)
 
 
-	posx = [pos[0] for pos in positions]
-	posy = [pos[1] for pos in positions]
-	posz = [pos[2] for pos in positions]
+	# posx = [pos[0] for pos in positions]
+	# posy = [pos[1] for pos in positions]
+	# posz = [pos[2] for pos in positions]
 	
-	fig = plt.figure()
-	ax = plt.axes(projection='3d')
-	ax.scatter3D(posx, posy, posz, c = posz, cmap = 'viridis')
+	# fig = plt.figure()
+	# ax = plt.axes(projection='3d')
+	# ax.scatter3D(posx, posy, posz, c = posz, cmap = 'viridis')
 
-	plt.show()
+	# plt.show()
 
-	exit(1)
+	# exit(1)
 
-	spatially_sorted = spatialSort(positions, div, num)
+	# spatially_sorted = spatialSort(positions, div, num)
 
-	for i in range(div):
-		for j in range(div):
-			for k in range(div):
-				try:
-					print(len(spatially_sorted[i][j][k]))
-				except:
-					print(i, j, k)
+	# for i in range(div):
+	# 	for j in range(div):
+	# 		for k in range(div):
+	# 			try:
+	# 				print(len(spatially_sorted[i][j][k]))
+	# 			except:
+	# 				print(i, j, k)
 
-	groups = makeNestedList(div)
-	for i in range(div):
-		for j in range(div):
-			for k in range(div):
-				groups[i][j][k] = groupPoints(spatially_sorted[i][j][k])
-				print("finished ", i * div * div + j * div + k, " / ", div**3)
+	# groups = makeNestedList(div)
+	# for i in range(div):
+	# 	for j in range(div):
+	# 		for k in range(div):
+	# 			groups[i][j][k] = groupPoints(spatially_sorted[i][j][k])
+	# 			print("finished ", i * div * div + j * div + k, " / ", div**3)
 
-	for i in range(div):
-		for j in range(div):
-			for k in range(div):
-				try:
-					print(len(groups[i][j][k]))
-				except:
-					print(i, j, k)
+	# for i in range(div):
+	# 	for j in range(div):
+	# 		for k in range(div):
+	# 			try:
+	# 				print(len(groups[i][j][k]))
+	# 			except:
+	# 				print(i, j, k)
 
-	print(len(groups))
+	# print(len(groups))

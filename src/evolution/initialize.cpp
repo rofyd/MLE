@@ -143,19 +143,20 @@ void initialize()
   modelinitialize(1); // This allows specific models to perform any needed initialization
 
   // Output initializations - Set values of nfldsout and ext_
-  nfldsout = (noutput_flds==0 || noutput_flds>nflds ? nflds : noutput_flds); // Set number of files to output
-  if(alt_extension[0]!='\0') // If an alternate extension was given use that instead of the default "_<run_number>.dat"
-    sprintf(ext_,"%s",alt_extension);
+  nfldsout = (noutput_flds == 0 || noutput_flds > nflds ? nflds : noutput_flds); // Set number of files to output
+  if(alt_extension[0] != '\0') // If an alternate extension was given use that instead of the default "_<run_number>.dat"
+    sprintf(ext_, "%s", alt_extension);
 
-  size_t fread_res = 0;
+  size_t fread_res __attribute__((unused)) = 0;
+
   // If an old grid image can be opened use it to read in initial conditions
-  if(continue_run>0 && (old_grid_=fopen("grid.img","rb")))
-  {
+  if(continue_run > 0 && (old_grid_ = fopen("grid.img","rb")))
+  { 
     printf("Previously generated grid image found. Reading in data...\n");
-    fread_res = fread(&run_number,sizeof(run_number),1,old_grid_);
+    fread_res = fread(&run_number, sizeof(run_number), 1, old_grid_);
     run_number++;
-    fread_res = fread(&t0,sizeof(t0),1,old_grid_);
-    if(t0>=tf) // Check to make sure that the time in the old grid is earlier than the final time for this run
+    fread_res = fread(&t0, sizeof(t0), 1, old_grid_);
+    if(t0 >= tf) // Check to make sure that the time in the old grid is earlier than the final time for this run
     {
       printf("A grid image file was found in this directory with values stored at t=%f. To continue that run set tf to a later time. To start a new run move or rename the file grid.img.\n",t0);
       exit(1);
@@ -169,11 +170,13 @@ void initialize()
       sprintf(mode_, "a+");
     else if(alt_extension[0] == '\0') // If no alternate extension was given set filename extension to indicate run number
       sprintf(ext_, "_%d.dat", run_number);
-    printf("Data read. Resuming run at t=%f\n", t0);
+    printf("Data read. Resuming run at t = %f\n", t0);
     output_parameters(); // Save information about the model and parameters and start the clock for timing the run
 
     return;
   }
+
+
 
   // If the variable no_initialization is set to 1 by the model file then don't initialize the modes
   if(no_initialization == 1)

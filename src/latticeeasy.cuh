@@ -44,19 +44,19 @@ const double dx = L/(double)N; // Distance between adjacent gridpoints
 const double dx_inv = N / (double)L;
 const double dx_inv_sq = (N / (double)L) * (N / (double)L);
 
-extern letype* f[nflds];
-extern letype* fd[nflds];
+extern letype* f[nflds]; // pointer to field values
+extern letype* fd[nflds]; // pointer to field derivative values
 
-extern letype* h[nflds][6];
-extern letype* hd[nflds][6];
+extern letype* h[nflds][6]; // pointer to field values of tensor perturbation
+extern letype* hd[nflds][6]; // pointer to field derivative values of tensor perturbation
 
-extern cufft_type*** hdk;
-extern fTT_type*** hdkTT;
+extern cufft_type*** hdk; // pointer to fourier transform of tensor perturbation
+extern fTT_type*** hdkTT; // pointer to TT projection of tensor perturbation in fourier space
 
-extern letype* EMT[nflds][6];
+extern letype* EMT[nflds][6]; // pointer to energy-momentum tensor (EMT)
 
-extern cufft_type*** EMTk;
-extern fTT_type*** EMTkTT;
+extern cufft_type*** EMTk; // pointer to EMT in fourier space
+extern fTT_type*** EMTkTT; // pointer to TT projection of EMT in fourier space
 
 
 /////////////////////////////////DIMENSIONAL SPECIFICATIONS//////////////////////
@@ -96,14 +96,14 @@ const int gridsize = N*N*N; // Number of spatial points in the grid
 extern letype* curr_gradientEnergy;//[nflds];
 extern letype* curr_potEnergy;//[num_potential_terms];
 
-extern letype* hmean[6];
-extern double* hmean_acc[6];
+extern letype* hmean[6]; // mean value of each field of tensor perturbation
+extern double* hmean_acc[6]; // accumulated mean value of each field of tensor perturbation
 
-extern letype* hdmean[6];
-extern double* hdmean_acc[6];
+extern letype* hdmean[6]; // mean value of each derivative field of tensor perturbation
+extern double* hdmean_acc[6]; // accumulated mean value of each derivative field of tensor perturbation
 
-extern letype dvdf_params[];
-extern letype pot_params[];
+extern letype dvdf_params[]; // parameter that are used for the calculation of the potential derivative
+extern letype pot_params[]; // parameter that are used for the calculation of the potential
 
 // energy momentum tensor in position space
 //extern symmTensor<field<letype, false>> EMT_pos;

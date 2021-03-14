@@ -515,7 +515,7 @@ void oscillon(letype totalEnergy)
       sDerivEnergy = .5*vard - rescale_r*(ad/a)*ffd + .5*pw2(rescale_r)*pw2(ad/a)*var;
 
       //calculate gradient energy
-      sGradEnergy = 0.5 * pow(a,-2.*(rescale_s+1.)) * norm * Stencil::fd_gradsq_test<letype, 2, NDIMS, N>(f[fld], Position(i,j,k));
+      sGradEnergy = 0.5 * pow(a,-2.*(rescale_s+1.)) * norm * Stencil::isotropic_grad<letype, 3, NDIMS, N>(f[fld], Position(i,j,k));
   
       //calculate potential energy
       for(int term = 0; term < num_potential_terms; term++)

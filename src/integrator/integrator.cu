@@ -1,12 +1,12 @@
 #include "integrator.cuh"
 
+// declare cuda variable counterparts
 __constant__ letype d_dvdf_params[num_dvdf_params];
 __constant__ letype d_pot_params[num_pot_params];
 
-
-__constant__ letype d_a = 0.0;
-__constant__ letype d_aterm = 0.0;
-__constant__ letype d_laplnorm = 0.0;
+__constant__ letype d_a = 0.0; // scale factor saved in constant memory
+__constant__ letype d_aterm = 0.0; // a-term
+__constant__ letype d_laplnorm = 0.0; // lapl norm factor
 __constant__ letype d_asr = 0.0;
 
 __constant__ letype* d_f[nflds];
@@ -14,8 +14,7 @@ __constant__ letype* d_fd[nflds];
 
 __constant__ letype* d_EMT[nflds][6];
 
-
-
+// copy field pointer to constant memory for easier handling
 void copyFieldsToConstantMemory()
 {
 	gpuErrchk(cudaMemcpyToSymbol(d_f,  f,  nflds * sizeof(letype*)));
@@ -27,6 +26,7 @@ void copyFieldsToConstantMemory()
 	}
 }
 
+// project the field values of f to a 2d grid
 __global__ void caclMeanGrad2D(const letype* __restrict__ f, letype* __restrict__ mean2D)
 {
 	//here we save the tiles of the x-y-slice that also includes the halo
@@ -84,17 +84,12 @@ __global__ void caclMeanGrad2D(const letype* __restrict__ f, letype* __restrict_
 					for(int k = 0; k < 2*isoHaloSize + 1; k++)
 						st_prevals_sq[stencilIndex(i, j, k)] += cu_pow2(tile[yt - isoHaloSize + i][xt - isoHaloSize + j][k] - zPen[isoHaloSize]);	
 
-					//tile[yt - isoHaloSize + i][xt - isoHaloSize + j][k];
-
 			for(int i = NDIMS * isoHaloSize; i >= 0; i--)
 				res += stencil[i] * st_prevals_sq[i];
-			
-/*		if(x == 1 && y == 1 && z == 1)
-			printf("%.20f\n", -res * zPen[isoHaloSize]);*/
 		}
 
 		meanTemp += res;
-		//-res * zPen[isoHaloSize];
+
 		//make sure that all threads are ready before starting to shift the data
 		__syncthreads();
 
@@ -114,15 +109,11 @@ __global__ void caclMeanGrad2D(const letype* __restrict__ f, letype* __restrict_
 		__syncthreads();
 	}
 
-	//meanTemp += c;
-/*	if(x == 10 && y == 10)
-	{
-		printf("res %.20f\n", meanTemp);	
-	}*/
 	if(doCalculations)
 		mean2D[xyOffset] = 0.5 * meanTemp;
 }
 
+// calculates the mean grad energy for all fields f
 void startCalcMeanGradEnergy(letype** f, letype curr_gradEnergy[nflds])
 {
 	static cudaMemGC<letype> meanLapl2D(N*N);
@@ -136,20 +127,9 @@ void startCalcMeanGradEnergy(letype** f, letype curr_gradEnergy[nflds])
 		cudaMemPrefetchAsync(meanLapl2D.data, N * N * sizeof(letype), 0, NULL);
 
 		caclMeanGrad2D<<<numBlocks, threadsPerBlock>>>(f[fld], meanLapl2D.data);
-/*		cudaDeviceSynchronize();
-		double res = 0.0;
-		for(int i = 0; i < N*N; i++)
-			{
-				res += meanLapl2D.data[i];
-			}
-		printf("grad %e\n", res/(double)(N*N*N));
-		
-*/		gpuErrchk(cudaPeekAtLastError());
-		reduce<N * N>(meanLapl2D.data, &curr_gradEnergy[fld]);
 
-		//cudaDeviceSynchronize();
-		//printf("\tgrad %e\n", curr_gradEnergy[0]/(double)(N*N*N));
-		//exit(1);
+		gpuErrchk(cudaPeekAtLastError());
+		reduce<N * N>(meanLapl2D.data, &curr_gradEnergy[fld]);
 		gpuErrchk(cudaPeekAtLastError());
 	}
 }
@@ -192,10 +172,6 @@ __global__ void calcLaplacian(const letype* __restrict__ f, letype* __restrict__
 
     letype st_prevals[NDIMS * isoHaloSize + 1] = {0.0}; // assumes cube like stencil
 
-/*	letype c = 0.0;
-	letype t = 0.0;
-	letype w = 0.0;
-*/
     //make sure that the tile is completely initialized before continuing
 	__syncthreads();
 
@@ -221,40 +197,12 @@ __global__ void calcLaplacian(const letype* __restrict__ f, letype* __restrict__
 				res += st_prevals[i] * stencil[i];
 			}
 
-
-/*			cfd_dirs[0] = 0.0;
-			cfd_dirs[1] = 0.0;
-			cfd_dirs[2] = 0.0;
-
-			for(int i = -2; i <= 2; i++)
-			{
-				cfd_dirs[1] += tile[yt + i][xt][isoHaloSize] * stencil_test[2 + i];
-				cfd_dirs[0] += tile[yt][xt + i][isoHaloSize] * stencil_test[2 + i];
-				cfd_dirs[2] += zPen[cfdHaloSize + i] * stencil_test[2 + i];
-			}
-
-			res = cfd_dirs[0] + cfd_dirs[1] + cfd_dirs[2];*/
-
-/*			
-			if(x == 20 && y == 10 && z == 10)
-			{
-				printf("dirs %f %f %f\n", cfd_dirs[0], cfd_dirs[1], cfd_dirs[2]);
-				printf("\n");
-			}
-*/
 			if constexpr(sgw)
 			{		
 				cfd_dirs[0] = 0.0;
 				cfd_dirs[1] = 0.0;
 				cfd_dirs[2] = 0.0;
 		
-/*				for(int i = 0; i < 2*cfdHaloSize + 1; i++)
-				{
-					cfd_dirs[0] += cu_cfd_stencil[i] * tile[yt - cfdHaloSize + i][xt][1];
-					cfd_dirs[1] += cu_cfd_stencil[i] * tile[yt][xt - cfdHaloSize + i][1];
-					cfd_dirs[2] += cu_cfd_stencil[i] * zPen[i];
-				}*/
-
 				for(int i = cfdHaloSize; i >= 1; i--)
 				{
 					cfd_dirs[1] += (tile[yt + i][xt][isoHaloSize] - tile[yt - i][xt][isoHaloSize]) * cu_cfd_stencil[cfdHaloSize + i];
@@ -267,50 +215,12 @@ __global__ void calcLaplacian(const letype* __restrict__ f, letype* __restrict__
 						d_EMT[fld][indexTensor(i, j)][index(x, y, z)] = cfd_dirs[i] * cfd_dirs[j];
 			}
 
-/*			
-			if(x == 20 && y == 10 && z == 10)
-			{
-				printf("dirs %f %f %f\n", cfd_dirs[0], cfd_dirs[1], cfd_dirs[2]);
-				printf("\n");
-			}*/
-	
-			// TODO use kahan summation or somehting else to improve accuracy here	
-			//meanTemp -= res * zPen[cfdHaloSize];
-
-/*			w = res * zPen[cfdHaloSize];
-			t = meanTemp + w;
-			if(abs(meanTemp) >= abs(w))
-				c += (meanTemp - t) + w;
-			else
-				c += (w - t) + meanTemp;
-			meanTemp = t;*/
-			
-/*			if(x == 0 && y == 0 && z == 0)
-				printf("f: %.20f res: %.20f st3: %.20f\n", zPen[cfdHaloSize], res, stencil[3]);
-*/
-/*			if(x == 0 && y == 0 && z == N - 1)
-				printf("x:-1 %.20f. y:-1 %.20f\n", tile[yt][xt-1][2], tile[yt-1][xt][2]);
-*/
-/*			if(x == 0 && y == 0 && z == 0)
-				for(int i = 0; i < NDIMS * isoHaloSize + 1; i++)
-					printf("%d ", st_test[i]);*/
-
-/*			if(x == 0 && y == 10 && z == 10)
-				printf("res %.20f\n", res);*/
-			
-
 			res *= d_laplnorm;
 
 			//res = 0.0; // TODO remove this. It is only there for testing purposes.
 
 			fd[z*N*N + xyOffset] += dtime * (res + d_aterm * zPen[cfdHaloSize] - d_dvdf(fld, d_dvdf_params, d_f, d_a, x, y, z));
 		}
-
-
-		/*
-		if(x == 1 && y == 1 && z == 1)
-			printf("%f %f %f\n", cfd_dirs[0], cfd_dirs[1], cfd_dirs[2]);
-		*/
 
 		//make sure that all threads are ready before starting to shift the data
 		__syncthreads();
@@ -332,6 +242,7 @@ __global__ void calcLaplacian(const letype* __restrict__ f, letype* __restrict__
 	}
 }
 
+// calculates the derivative for all fields
 void startCalcLaplacian(letype dtime, letype curr_gradEnergy[nflds])
 {
 	double laplnorm = 1.0 / pw2(dx) / pow(a, 2.0 * rescale_s + 2.0); // Set coefficient for laplacian term in equations of motion. The dx^2 converts the output of lapl() to a laplacian and the scale factor term accounts for model dependent rescalings of the equations of motion.
@@ -340,9 +251,6 @@ void startCalcLaplacian(letype dtime, letype curr_gradEnergy[nflds])
 	letype l_laplnorm = (letype) laplnorm;
 	letype l_a = (letype) a;
 	letype l_aterm = (letype) aterm;
-
-	//printf("laplnorm %.20f aterm %.20f\n", laplnorm, aterm);
-	//exit(1);
 
 	gpuErrchk(cudaMemcpyToSymbolAsync(d_a, &l_a, sizeof(d_a), 0, cudaMemcpyHostToDevice, 0));
 	gpuErrchk(cudaMemcpyToSymbolAsync(d_aterm, &l_aterm, sizeof(d_aterm), 0, cudaMemcpyHostToDevice, 0));
@@ -379,17 +287,9 @@ void startCalcLaplacian(letype dtime, letype curr_gradEnergy[nflds])
 		calcLaplacian<<<numBlocksLapl, threadsPerBlockLapl>>>(f[fld], fd[fld], dtime, fld);
 		gpuErrchk(cudaPeekAtLastError());
 	}
-
-	//exit(1);
 }
 
-/*
-__device__ inline int tileIndexGW(int fld, int x, int y, int z)
-{
-	return ((fld * numThreadsGWnum + x ) * numThreadsGWnum + y ) * (2*isoHaloSize + 1) + z;
-}
-*/
-
+// calculates the derivatives for all gw fields
 __global__ void evolveGWd(const letype* __restrict__ h, letype* __restrict__ hd, const letype* __restrict__ EMT, const letype dtime, const letype meanAcc)
 {
 	//here we save the tiles of the x-y-slice that also includes the halo
@@ -406,10 +306,6 @@ __global__ void evolveGWd(const letype* __restrict__ h, letype* __restrict__ hd,
     const int yt = threadIdx.y;
 
     //check if this thread is in the inner tile and has to do calculations
-/*    bool doCalculations = true;
-    if(xt < isoHaloSize || yt < isoHaloSize || xt - isoHaloSize >= tileSizeGW || yt - isoHaloSize >= tileSizeGW) 
-    	doCalculations = false;
-*/
     const bool doCalculations = !(xt < isoHaloSize || yt < isoHaloSize || xt - isoHaloSize >= tileSizeGW || yt - isoHaloSize >= tileSizeGW);
 
     //xyOffset for grid coord
@@ -422,7 +318,6 @@ __global__ void evolveGWd(const letype* __restrict__ h, letype* __restrict__ hd,
 	letype res = 0.0;
 	letype st_prevals[NDIMS * isoHaloSize + 1] = {0.0}; // assumes cube like stencil
 
-	//letype cfd_dirs[3];
     //make sure that the tile is completely initialized before continuing
 	__syncthreads();
 
@@ -447,19 +342,6 @@ __global__ void evolveGWd(const letype* __restrict__ h, letype* __restrict__ hd,
 			for(int i = NDIMS * isoHaloSize; i >= 0; i--)
 				res += st_prevals[i] * stencil[i];
 
-/*			cfd_dirs[0] = 0.0;
-			cfd_dirs[1] = 0.0;
-			cfd_dirs[2] = 0.0;
-
-			for(int i = -2; i <= 2; i++)
-			{
-				cfd_dirs[1] += tile[yt + i][xt][isoHaloSize] * stencil_test[2 + i];
-				cfd_dirs[0] += tile[yt][xt + i][isoHaloSize] * stencil_test[2 + i];
-				cfd_dirs[2] += tile[yt][xt][isoHaloSize + i] * stencil_test[2 + i];
-			}
-
-			res = cfd_dirs[0] + cfd_dirs[1] + cfd_dirs[2];*/
-
 			res *= d_laplnorm;
 
 			hd[z*N*N + xyOffset] += dtime * (res + d_aterm * (tile[yt][xt][isoHaloSize] + meanAcc) + d_asr * EMT[z*N*N + xyOffset]);
@@ -482,11 +364,10 @@ __global__ void evolveGWd(const letype* __restrict__ h, letype* __restrict__ hd,
 	}
 }
 
-
+// starts the kernel to calculate the derivative for all gw fields
 void startEvolveGWd(letype** h, letype** hd, letype** EMT, letype dtime, const int gwfld)
-{//pow(rescale_A_inv, 2) * pow(rescale_B, 2)
+{
 	const letype asr = 16.0 * M_PI * pow(a, -2.0 * rescale_s - rescale_r - 2.0) / pw2(dx);
-	//2.0 * pow(a, -2.0 * rescale_s + rescale_r - 2.0) * rescale_A_inv * dx_inv_sq;
 
 	cudaMemcpyToSymbolAsync(d_asr, &asr, sizeof(asr), 0, cudaMemcpyHostToDevice, 0);
 
@@ -509,74 +390,25 @@ void startEvolveGWd(letype** h, letype** hd, letype** EMT, letype dtime, const i
 	}
 }
 
-__global__ void resetEMT(letype* EMT)
-{
-	//coordinates on the grid
-	const int x = blockIdx.x * blockDim.x + threadIdx.x;
-    const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    const int z = blockIdx.z * blockDim.z + threadIdx.z;
-
-    for(int fld = 0; fld < 6; fld++)
-    	EMT[index(x, y, z)] = 0.0;
-}
-
-void startResetEMT(letype** EMT)
-{
-	for(int fld = 0; fld < 6; fld++)
-	{
-		cudaMemsetAsync(EMT[fld], 0, gridsize*sizeof(letype));
-	}
-	gpuErrchk(cudaPeekAtLastError());
-	return;
-
-	const dim3 numBlocks(N / tileSize, N / tileSize, N / tileSize * 4);
-	const dim3 threadsPerBlock(tileSize, tileSize, tileSize / 4);
-
-
-	if(threadsPerBlock.x * threadsPerBlock.y * threadsPerBlock.z > 1024 || threadsPerBlock.z > 64)
-	{
-		printf("%s\n", "ERROR in startResetEMT: Total number of threads in a block may not exceed 1024. The number of threads in the z-direction may not exceed 64\n");
-		abort();	
-	}
-
-	for(int fld = 0; fld < 6; fld++)
-	{
-		resetEMT<<<numBlocks, threadsPerBlock>>>(EMT[fld]);
-		gpuErrchk(cudaPeekAtLastError());
-	}
-}
-
+// leap frog: adjust field values by their derivative
 __global__ void leapFrog(letype* __restrict__ f, const letype* __restrict__ fd, const letype dtime)
 {
 	//coordinates on the grid
 	const size_t x = blockIdx.x * blockDim.x + threadIdx.x;
 
-	//printf("%d %d %d\n", blockDim.x, blockDim.y, blockDim.z);
-
    	f[x] += fd[x] * dtime;
-
-/*
-    for(int fld = 0; fld < amt; fld++)
-    	f[fld][index(x, y, z)] += fd[fld][index(x, y, z)] * dtime;
-*/
 }
 
-
+// leap frog: adjust field values by their derivative and account for the mean value
 __global__ void leapFrogMean(letype* __restrict__ f, const letype* __restrict__ fd, const letype dtime, const letype meanAcc)
 {
 	//coordinates on the grid
 	const size_t x = blockIdx.x * blockDim.x + threadIdx.x;
 
-	//printf("%d %d %d\n", blockDim.x, blockDim.y, blockDim.z);
-
    	f[x] += (fd[x] + meanAcc) * dtime;
-
-/*
-    for(int fld = 0; fld < amt; fld++)
-    	f[fld][index(x, y, z)] += fd[fld][index(x, y, z)] * dtime;
-*/
 }
 
+// function to start leapFrogMean kernel
 void startLeapFrogMean(int gwfld, int amt, letype** field, letype** fieldd, letype dtime)
 {
 	const int blockSize = 16 * tileSize;
@@ -592,9 +424,7 @@ void startLeapFrogMean(int gwfld, int amt, letype** field, letype** fieldd, lety
 	}
 }
 
-
-
-
+// function to start leapFrog kernel
 void startLeapFrog(int amt, letype** field, letype** fieldd, letype dtime)
 {
 	const int blockSize = 16 * tileSize;
@@ -610,11 +440,7 @@ void startLeapFrog(int amt, letype** field, letype** fieldd, letype dtime)
 	}
 }
 
-
-
-
-
-
+// calculates the mean potential energy
 template <unsigned int blockSize>
 __global__ void cu_pot_reduce(const int term, letype* __restrict__ reduct, const size_t array_len)
 {
@@ -646,13 +472,9 @@ __global__ void cu_pot_reduce(const int term, letype* __restrict__ reduct, const
     if (tid == 0) reduct[blockIdx.x] = sdata[0];
 }
 
+// function to start the kernel to calculate the mean potential energy
 void meanPot2(letype** f)
 {
-	/*
-	static letype* params = nullptr;
-	if(params == nullptr)
-		gpuErrchk(cudaMallocManaged(&params, (num_potential_terms + 1) * sizeof(letype)));
-	*/
 	gpuErrchk(cudaMemcpyToSymbolAsync(d_pot_params, pot_params, num_pot_params * sizeof(letype), 0, cudaMemcpyHostToDevice, 0));
 	gpuErrchk(cudaPeekAtLastError());
 
@@ -682,7 +504,7 @@ void meanPot2(letype** f)
 	}
 }
 
-
+// calcualtes the mean value for all gw fields
 void calchmean()
 {
 	for(int fld = 0; fld < nflds; fld++)
@@ -695,6 +517,7 @@ void calchmean()
 	}
 }
 
+// calculates the mean derivative value for all gw fields
 void calchdmean()
 {
 	for(int fld = 0; fld < nflds; fld++)
@@ -707,7 +530,7 @@ void calchdmean()
 	}
 }
 
-
+// substract the mean value of gw fields
 __global__ void adjusthwithmean(letype* __restrict__ h, letype mean, double* __restrict__ acc)
 {
 	const size_t x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -720,6 +543,7 @@ __global__ void adjusthwithmean(letype* __restrict__ h, letype mean, double* __r
    		*acc += mean / gridsize;
 }
 
+// start kernel to adjust value of gw fields by their mean value
 void startadjusth()
 {
 	const int blockSize = 16 * tileSize;
@@ -736,6 +560,7 @@ void startadjusth()
 	}
 }
 
+// substract the mean value of gw derivative fields
 __global__ void adjusthdwithmean(letype* __restrict__ h, letype mean, double* __restrict__ acc)
 {
 	const size_t x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -747,7 +572,8 @@ __global__ void adjusthdwithmean(letype* __restrict__ h, letype mean, double* __
    	if(x == 0)
    		*acc += mean / gridsize;
 }
-	
+
+// start kernel to adjust value of gw derivative fields by their mean value
 void startadjusthd()
 {
 	const int blockSize = 16 * tileSize;

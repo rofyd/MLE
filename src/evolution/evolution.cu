@@ -20,40 +20,6 @@ The function evolve_derivs(letype d) advances the field derivatives by a time in
 // Externally called function(s)
 /////////////////////////////////////////////////////
 
-// Calculate the gradient energy, 1/2 <|Grad(f)|^2> = 1/2 <-f Lapl(f)>, of a field
-/*letype gradient_energy(int fld)
-{
-  DECLARE_INDICES
-  letype gradient = 0.0;
-  double norm = 1.0/pw2(dx); // Converts the output of lapl() to an actual Laplacian
-
-
-
-  cudaMemGC<letype> meanTemp(N*N);
-  cudaMemsetAsync(meanTemp.data, 0, N*N*sizeof(letype));
-  cudaMemPrefetchAsync(meanTemp.data,   N*N*sizeof(letype), cudaCpuDeviceId, NULL);
-
-  //printf("TST: %.20f\n", meanTemp.data[10]);
-  prefetchAsyncFields(f, fd, cudaCpuDeviceId);
-
-  gpuErrchk(cudaDeviceSynchronize());
-  for(i = 0; i < N; i++)
-    for(j = 0; j < N; j++)
-      for(k = 0; k < N; k++)
-  {
-    //meanTemp.data[index(i, j, 0)] -= FIELD(fld) * Stencil::isotropic_lapl<letype, 3, NDIMS, N>(f[fld], Position(i, j, k), 1);
-    meanTemp.data[index(i, j, 0)] += Stencil::isotropic_grad<letype, 3, NDIMS, N>(f[fld], Position(i, j, k));
-  }
-
-
-  cudaMemPrefetchAsync(meanTemp.data, N*N, 0, NULL);
-
-  gradient = reduce(meanTemp.data, N*N);
-  prefetchAsyncFields(f, fd, cudaCpuDeviceId);
-  // norm converts the results of lapl() to an actual laplacian and gridsize converts the sum over the lattice to an average
-  return(.5*gradient*norm/(double)gridsize);
-}*/
-
 // Calculate the scale factor and its derivatives
 // Use d=0 to indicate that all quantities are known at the same time. Otherwise it's assumed that they are known at staggered times with time step d.
 void evolve_scale(letype d)
@@ -87,24 +53,12 @@ void evolve_scale(letype d)
     gpuErrchk(cudaPeekAtLastError()); 
     gpuErrchk(cudaDeviceSynchronize());
 
-    //printf("grad %.20f\n", curr_gradientEnergy[0]);
-
     for(int term = 0; term < num_potential_terms; term++)
       curr_potEnergy[term] /= (letype) gridsize;
-
-
 
     sfev1 = rescale_s + 2.; // See documentation for an explanation of these terms in the evolution equation for a
     sfev2 = 2.*(rescale_r+rescale_s + 1.);
     sfev3 = 2.*(rescale_s + 1.);
-
-    /*
-    for(fld = 0; fld < nflds; fld++) // Sum gradient energy over all fields
-      grad_energy += gradientEnergy(fld);
-    */
-
-    //printf("\tpot: %.20f grad: %.20f\n", curr_potEnergy[0], curr_gradientEnergy[0]);
-
 
     for(fld = 0; fld < nflds; fld++)
       grad_energy += curr_gradientEnergy[fld] * 0.5 * dx_inv_sq / (letype)gridsize;
@@ -130,18 +84,11 @@ void evolve_scale(letype d)
 // Advance the field values and scale factor using the first derivatives
 void evolve_fields(letype d)
 {
-
-
-/*  cudaDeviceSynchronize();
-  printf("LEAP \t %.10f beofre %.20f\n", t, f[0][index(10, 10, 10)]);*/
-
   // Advance time
   t += d;
 
   startLeapFrog(nflds, f, fd, d);
   gpuErrchk(cudaPeekAtLastError());
-/*  cudaDeviceSynchronize();
-  printf("LEAP \t %.10f after %.20f\n", t, f[0][index(10, 10, 10)]);*/
 
   if constexpr(sgw)
   {
@@ -157,8 +104,6 @@ void evolve_fields(letype d)
     startadjusth();
     gpuErrchk(cudaPeekAtLastError());
 
-/*    calchdmean();
-    startadjusthd();*/
     gpuErrchk(cudaPeekAtLastError());
   }
 
@@ -175,18 +120,6 @@ void evolve_derivs(letype d)
   letype laplnorm = 1. / pw2(dx) / pow(a, 2. * rescale_s + 2.); // Set coefficient for laplacian term in equations of motion. The dx^2 converts the output of lapl() to a laplacian and the scale factor term accounts for model dependent rescalings of the equations of motion.
   gpuErrchk(cudaPeekAtLastError());
   evolve_scale(d); // Calculate the scale factor and its derivatives
-
-  /*
-  startCalcLaplacian(f, fd, d);
-  cudaDeviceSynchronize();
-  */
-
-
-/*  if constexpr(sgw)
-  {
-    for(int gwfld = 0; gwfld < nflds; gwfld++)
-      startResetEMT(EMT[gwfld]);
-  }*/
   
   startCalcLaplacian(d, curr_gradientEnergy); 
   gpuErrchk(cudaPeekAtLastError());

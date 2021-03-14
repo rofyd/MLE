@@ -95,19 +95,6 @@ __device__ inline double lam0(int i, int j, int l, int m, const int nVals[])
     return P0(i, l, nVals) * P0(j, m, nVals) - 0.5 * P0(i, j, nVals) * P0(l, m, nVals);
 }
 
-
-/*
-__device__ inline letype test2(int i)
-{
-	return (letype)i;
-}
-
-__device__ inline letype test(int i)
-{
-	return test2(i);
-}
-*/
-
 const double traceMargin = 10e-4;
 
 __global__ void testTTProj()
@@ -131,35 +118,9 @@ __global__ void testTTProj()
     {
         printf("ERROR: trace is too large at %d %d %d with values %e %e\n", nVals[0], nVals[1], nVals[2], val_r, val_c);
     }
-/*
-    if(nVals[0] == 5 && nVals[1] == -5 && nVals[2] == -10)
-    {
-        for(int i = 0; i < 3; i++)
-        {
-            printf("%e +", d_tf[indexTensor(i, i)][indexFT(x, y, z)].x);
-        }
-        printf("\n");
-        for(int i = 0; i < 3; i++)
-        {
-            printf("%e +", d_tf[indexTensor(i, i)][indexFT(x, y, z)].y);
-        }
-        printf("\n\n");
-        for(int i = 0; i < 3; i++)
-        {
-            printf("%e +", d_f[indexTensor(i, i)][indexFT(x, y, z)].x);
-        }
-        printf("\n");
-        for(int i = 0; i < 3; i++)
-        {
-            printf("%e +", d_f[indexTensor(i, i)][indexFT(x, y, z)].y);
-        }
-        printf("\n");
-        //printf("%e %e %e %e\n", d_tf[indexTensor(0, 0)][indexFT(x, y, z)].x, d_tf[indexTensor(0, 0)][indexFT(x, y, z)].y, val_r, val_c);
-    }
-*/
+
     int ii = 0;
     int ji = 0;
-
 
     //check transversality
     for(int j = 0; j < 3; j++)
@@ -187,11 +148,6 @@ __global__ void testTTProj()
         {
             printf("ERROR: transversality test failed at %d %d %d with values %e %e\n", nVals[0], nVals[1], nVals[2], val_r, val_c);
         }
-
-/*        if(nVals[0] == 5 && nVals[1] == -5 && nVals[2] == -10)
-        {
-            printf("%e %e\n", val_r, val_c);
-        }*/
     }
 
     //check
@@ -248,16 +204,8 @@ __global__ void TTProj(cufft_type** f, fTT_type** tf)
     const int y = blockIdx.y * blockDim.y + threadIdx.y + 1;
     const int z = blockIdx.z * blockDim.z + threadIdx.z + 1;
 
-   	//printf("KERNEL HERE: %d %d %d\n", x, y, z);
     const int nVals[3] = {x - N/2, y - N/2, z - N/2};
 	
-/*    for(int i = 0; i < 3; i++)
-        for(int j = 0; j <= i; j++)
-    {
-        if(abs(d_f[indexTensor(i, j)][indexFT(x, y, z)].x) + abs(d_f[indexTensor(i, j)][indexFT(x, y, z)].y) > 1)
-            printf("%d %d %d\n", nVals[0], nVals[1], nVals[2]);
-    }*/
-
     int li = 0;
     int mi = 0;
 
@@ -336,10 +284,6 @@ void startTTProj(cufft_type** f, fTT_type** tf)
 	TTProj<<<numBlocks, threadsPerBlock>>>(f, tf);		
 	gpuErrchk(cudaPeekAtLastError());
 	gpuErrchk(cudaDeviceSynchronize());
-/*
-    printf("REAL %.20f %.20f %.20f\n", tf[1][indexFT(N/2 + 1, N/2 + 1, N/2 + 1)].x, tf[1][indexFT(N/2 - 1, N/2 - 1, N/2 - 1)].x, tf[3][20].x);
-    printf("COMP %.20f %.20f %.20f\n", tf[1][indexFT(N/2 + 1, N/2 + 1, N/2 + 1)].y, tf[1][indexFT(N/2 - 1, N/2 - 1, N/2 - 1)].y, tf[3][20].y);
-*/
 }
 
 __global__ void addGWFields(int gwnflds, fTT_type*** hdkTT)

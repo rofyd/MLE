@@ -14,10 +14,11 @@ obj/
 
 # work in progess data
 wip/
+pdfmaker.sh
 
 # Output data
 data/
 data/*
 *.dat
 output.txt
- 
+*.png 

@@ -19,37 +19,36 @@ This file contains all the adjustable parameters for running the latticeeasy pro
 #endif
 
 
-const double pmass = 9.97356e-7;//5.e-6; //mass of the inflaton
-const double param_1st = 0.015;
-const double param_2nd = 0.006;
+const double pmass = 5.35237e-8;//5.e-6; //mass of the inflaton
+const double param_1st = 0.769129;
 
-const double res_r = 3.0 / 2.0;
+const double res_r = 1.0;
 
 // CUDA parameter for iterations
-__constant__ const int tileSize = 16;
+__constant__ const int tileSize = 16; // tile size for field evolution
 __constant__ const int isoHaloSize = 1; //halo size for isotropic stencil
 __constant__ const int cfdHaloSize = 1; //halo size for central finite difference, has to be at least isoHaloSize and derivative should have the same order
 __constant__ const int haloSize = cfdHaloSize; //halo size
 
-__constant__ const int numThreads = tileSize + 2*haloSize;
+__constant__ const int numThreads = tileSize + 2*haloSize; // numThreads^2 is the amount of threads per thread block
 
-__constant__ const int tileSizeGW = 16;
-__constant__ const int numThreadsGWnum = tileSizeGW + 2*isoHaloSize;
+__constant__ const int tileSizeGW = 16; // tile size for gw evolution
+__constant__ const int numThreadsGWnum = tileSizeGW + 2*isoHaloSize; // numThreadsGWnum^2 is the amount of threads per thread block
 
 // Adjustable run parameters
 #define NDIMS 3
-const int N = 512; // Number of points along each edge of the cubical lattice
-const int nflds = 1;  //Number of fields
+const int N = 256; // Number of points along each edge of the cubical lattice
+const int nflds = 1; //Number of fields
 const int gwnflds = nflds == 1 ? 1 : nflds + 1;
-const double L = 300; //19.05// Size of box (i.e. length of each edge) in rescaled distance units
-const letype dt = 0.1; // Size of time step
-const double tf = 10e10;//0.2; // Final time
-const double af = 13.45; // Final scale factor
-const std::vector<double> a_saves = {1.7, 2.5, 3.35, 4.0, 6.7};//{1.001, 1.6, 2.3, 3.0, 3.35, 4.0, 5.0, 5.4, 5.8, 6.3, 6.7, 7.3, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 13.45}; // scale factors at which to save quantities
+const double L = 19.05; // Size of box (i.e. length of each edge) in rescaled distance units
+const letype dt = 0.03; // Size of time step
+const double tf = -1; // Final time
+const double af = 13.0; // Final scale factor
+const std::vector<double> a_saves = {1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0};//{1.001, 1.6, 2.3, 3.0, 3.35, 4.0, 5.0, 5.4, 5.8, 6.3, 6.7, 7.3, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 13.45}; // scale factors at which to save quantities
 
-const int seed = 642795; // Random number seed. Should be a positive integer
+const int seed = 64279; // Random number seed. Should be a positive integer
 const double initfield[] = {1.0}; // Initial values of the fields in program units. All nonspecified values are taken to be zero.
-const double initderivs[] = {0.719724};//  Initial values of the field derivatives in program units. All nonspecified values are taken to be zero.
+const double initderivs[] = {0.158505 + res_r * 0.000678};//  Initial values of the field derivatives in program units. All nonspecified values are taken to be zero.
 const int expansion = 2; // Whether to use no expansion (0), power-law expansion (1), or self-consistent expansion (2)
 const letype expansion_power = .5; // Power of t in power law expansion. Only used when expansion=1.. Set to .5 for radiation or .67 for matter domination.
 const letype kcutoff = 0; // Momentum for initial lowpass filter. Set to 0 to not filter
@@ -76,7 +75,7 @@ const int sastnonTT = 0; // Output AST without TT projecting
 
 // Output oscillon data
 const int soscillon = 1;
-const float overdensity = 5.0;
+const float overdensity = 3.0;
 
 // The variables s<name> control what will be saved (1=save, 0=don't save)
 const int smeansvars = 1; // Output means and variances. This function is also used to check for exponential instability, so it is generally wise to leave it on.
@@ -89,7 +88,7 @@ const int scheckpoint = 0; // Save an image of the grid
   const letype tcheckpoint = t_start_output;
 
 // Output power spectra
-const int sspectra = 1;
+const int sspectra = 0;
   const letype tspectra = t_start_output;
 
 // Output components of energy density

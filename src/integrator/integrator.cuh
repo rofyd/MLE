@@ -12,8 +12,6 @@ void startCalcMeanPotEnergy(letype** f, letype* potEnergy);
 
 void startCalcMeanGradEnergy(letype** f, letype curr_gradEnergy[nflds]);
 
-void startResetEMT(letype** EMT);
-
 void startEvolveGWd(letype** h, letype** hd, letype** EMT, letype dtime, const int gwfld);
 
 void startCalcLaplacian(letype dtime, letype curr_gradEnergy[nflds]);
