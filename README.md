@@ -1,7 +1,5 @@
 # Modified LatticeEasy
-Simulating the production of oscillons and the resulting GW spectrum for my M.Sc. thesis.
-
-Main code (LATTICEEASY and CLUSTEREASY) is taken from http://www.felderbooks.com/latticeeasy/
+Main code (LATTICEEASY) is taken from http://www.felderbooks.com/latticeeasy/
 
 Requirements:
 * CUDA toolkit 11.2 (https://developer.nvidia.com/cuda-downloads)
@@ -12,3 +10,4 @@ The parameters.cuh file contains five new switches that enable/disable the calcu
 The folder docs/ contains some information on design decision and the stencils.
 
 Build via 'make' and run with './latticeeasy'.
+

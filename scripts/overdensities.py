@@ -1,3 +1,7 @@
+#basic structure is taken from https://github.com/pmocz/volumerender-python
+
+
+
 from matplotlib import pyplot as plt
 import numpy as np
 import h5py as h5
